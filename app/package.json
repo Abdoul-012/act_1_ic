@@ -1,5 +1,5 @@
 {
-  "name": "test-cycle-tdd-person-form-abdoulexenzo",
+  "name": "@abdouleexz/test-cycle-tdd-person-form",
   "version": "1.0.0",
   "description": "Reusable React PersonForm component (from Test_cycle_TDD)",
   "type": "module",
