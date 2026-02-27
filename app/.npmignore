@@ -1,0 +1,29 @@
+# Only the transpiled library output should be published.
+
+# Sources & app-only files
+src/
+public/
+index.html
+
+# Tests & coverage
+test/
+coverage/
+
+# E2E
+cypress/
+cypress.config.*
+
+# Tooling / configs
+vite.config.*
+eslint.config.*
+jest.config.*
+babel.config.*
+jsdoc.json
+
+# Local/editor
+.vscode/
+.idea/
+*.iml
+
+# Lockfiles (optional)
+pnpm-lock.yaml

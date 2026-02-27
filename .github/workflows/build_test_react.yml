@@ -1,0 +1,162 @@
+name: Build, Test, Publish (NPM) & Deploy
+
+on:
+   push:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: cd app && pnpm install --frozen-lockfile
+
+      - name: Install Cypress binary
+        run: cd app && pnpm exec cypress install
+
+      - name: Generate JSDoc
+        run: cd app && pnpm run doc
+
+      - name: Build React App
+        run: cd app && pnpm run build
+
+      - name: Run Tests
+        run: cd app && pnpm test
+
+      - name: Run Cypress tests
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: app
+          start: pnpm dev
+          wait-on: 'http://localhost:5173/Test_cycle_TDD/'
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: app/coverage/lcov.info
+          fail_ci_if_error: 'true'
+
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v3
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./app/dist
+
+  publish-npm:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: cd app && pnpm install --frozen-lockfile
+
+      - name: Read package name & versions
+        id: versions
+        shell: bash
+        run: |
+          set -e
+          PKG_NAME=$(node -p "require('./app/package.json').name")
+          LOCAL_VERSION=$(node -p "require('./app/package.json').version")
+          REMOTE_VERSION=$(npm view "$PKG_NAME" version 2>/dev/null || echo "0.0.0")
+
+          echo "name=$PKG_NAME" >> $GITHUB_OUTPUT
+          echo "local=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+          echo "remote=$REMOTE_VERSION" >> $GITHUB_OUTPUT
+
+          echo "Package: $PKG_NAME"
+          echo "Local version:  $LOCAL_VERSION"
+          echo "Remote version: $REMOTE_VERSION"
+
+      - name: Decide whether to publish (bypass logic)
+        id: decide
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const local = process.env.LOCAL;
+          const remote = process.env.REMOTE;
+
+          const parse = (v) => v.replace(/^v/, '').split('.').map((n) => parseInt(n, 10));
+          const gt = (a, b) => {
+            const pa = parse(a);
+            const pb = parse(b);
+            for (let i = 0; i < 3; i++) {
+              if ((pa[i] ?? 0) > (pb[i] ?? 0)) return true;
+              if ((pa[i] ?? 0) < (pb[i] ?? 0)) return false;
+            }
+            return false;
+          };
+
+          const shouldPublish = gt(local, remote);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `should_publish=${shouldPublish}\n`);
+          console.log(`should_publish=${shouldPublish}`);
+          NODE
+        env:
+          LOCAL: ${{ steps.versions.outputs.local }}
+          REMOTE: ${{ steps.versions.outputs.remote }}
+
+      - name: Skip publish (version already on NPM)
+        if: steps.decide.outputs.should_publish != 'true'
+        run: echo "No publication needed (local version <= remote version)."
+
+      - name: Build NPM package
+        if: steps.decide.outputs.should_publish == 'true'
+        run: cd app && pnpm run build-npm
+
+      - name: Publish to NPM
+        if: steps.decide.outputs.should_publish == 'true'
+        run: cd app && npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  deploy:
+    needs: publish-npm
+    permissions:
+      pages: write
+      id-token: write
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{steps.deployment.outputs.page_url}}
+    steps:
+      - name: Deploy to Github pages
+        id: deployment
+        uses: actions/deploy-pages@v4
