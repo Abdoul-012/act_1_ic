@@ -15,19 +15,11 @@ import './PersonForm.css'
 /**
  * PersonForm Component
  *
- * A form for registering a person. Handles field validation and submission.
- * Displays validation errors and success notifications using react-toastify.
- *
- * @module PersonForm
- * @component
- *
  * @param {Object} props
- * @param {function(Object): void} props.addPerson - Callback function to add a person object to parent state or storage
- * @param {string} [props.submitLabel="Soumettre"] - Optional label for the submit button (retrocompatible)
- *
- * @returns {JSX.Element} The rendered registration form
+ * @param {function(Object): void} props.onSubmit - Callback appelée quand le formulaire est valide (BREAKING: remplace addPerson)
+ * @param {string} [props.submitLabel="Soumettre"] - Libellé optionnel du bouton submit
  */
-export default function PersonForm({ addPerson, submitLabel = 'Soumettre' }) {
+export default function PersonForm({ onSubmit, submitLabel = 'Soumettre' }) {
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -39,14 +31,6 @@ export default function PersonForm({ addPerson, submitLabel = 'Soumettre' }) {
 
   const [errors, setErrors] = useState({})
 
-  /**
-   * Validate a single form field and update the error state.
-   * @module PersonForm
-   * @function validateField
-   * @private
-   * @param {string} name - Field name
-   * @param {string} value - Field value
-   */
   const validateField = (name, value) => {
     if (!value) {
       setErrors((prev) => ({ ...prev, [name]: '' }))
@@ -80,26 +64,12 @@ export default function PersonForm({ addPerson, submitLabel = 'Soumettre' }) {
     }
   }
 
-  /**
-   * Handle form field changes.
-   * @module PersonForm
-   * @function handleChange
-   * @private
-   * @param {Event} e - Input change event
-   */
   const handleChange = (e) => {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
     validateField(name, value)
   }
 
-  /**
-   * Handle form submission.
-   * @module PersonForm
-   * @function handleSubmit
-   * @private
-   * @param {Event} e - Submit event
-   */
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
@@ -112,16 +82,15 @@ export default function PersonForm({ addPerson, submitLabel = 'Soumettre' }) {
         city: form.city,
       }
       validatePerson(person)
-      await addPerson(person)
-      toast.success('Enregistré avec succès !!!!', {
-        toastId: 'success-toast',
-      })
+
+      // ✅ BREAKING: remplace addPerson(person)
+      await onSubmit(person)
+
+      toast.success('Enregistré avec succès !!!!', { toastId: 'success-toast' })
       setForm({ firstName: '', lastName: '', email: '', birthDate: '', zip: '', city: '' })
       setErrors({})
     } catch (err) {
-      /* istanbul ignore next */
       let key = 'form'
-      /* istanbul ignore next */
       if (err.message.includes('SERVER_ERROR')) {
         toast.error(errorMessages.SERVER_ERROR, {
           toastId: 'server-error-toast',
@@ -134,7 +103,6 @@ export default function PersonForm({ addPerson, submitLabel = 'Soumettre' }) {
       else if (err.message.includes('CITY')) key = 'city'
       else if (err.message.includes('UNDERAGE') || err.message.includes('FUTURE_DATE')) key = 'birthDate'
 
-      /* istanbul ignore next */
       setErrors({ [key]: err.message })
     }
   }

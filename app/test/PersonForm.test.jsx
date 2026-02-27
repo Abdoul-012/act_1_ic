@@ -193,7 +193,7 @@ const renderPersonForm = () => {
         const stored = JSON.parse(localStorage.getItem('persons') || '[]');
         localStorage.setItem('persons', JSON.stringify([...stored, person]));
     });
-    render(<PersonForm addPerson={mockAddPerson} />);
+    render(<PersonForm onSubmit={mockAddPerson} />);
     return { mockAddPerson };
 };
 
