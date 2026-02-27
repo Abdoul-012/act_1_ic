@@ -105,7 +105,7 @@ export default function PersonForm({addPerson}) {
             }
             validatePerson(person)
             await addPerson(person)
-            toast.success("Enregistré avec succès !", {
+            toast.success("Enregistré avec succès !!!!", {
                 toastId: "success-toast"
             });
             setForm({ firstName: '', lastName: '', email: '', birthDate: '', zip: '', city: '' })
