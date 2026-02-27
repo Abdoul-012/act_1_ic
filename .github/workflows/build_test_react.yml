@@ -47,12 +47,12 @@ jobs:
           start: pnpm dev
           wait-on: 'http://localhost:5173/Test_cycle_TDD/'
 
-      - name: Upload coverage reports to Codecov
+      - name: Upload coverage to Codecov (non bloquant)
         uses: codecov/codecov-action@v5
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
           files: app/coverage/lcov.info
-          fail_ci_if_error: 'true'
+          fail_ci_if_error: false
+        continue-on-error: true
 
       - name: Setup Pages
         id: pages
